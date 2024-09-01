@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/stxreocoma/todo/database"
 	"github.com/stxreocoma/todo/models"
 )
@@ -46,12 +48,6 @@ func lenMonth(date time.Time) int {
 		return 30
 	}
 	return 0
-}
-
-func weekDay(day int) int {
-	for ; day > 7; day -= 7 {
-	}
-	return day
 }
 
 func NextDate(now time.Time, date string, repeat string) (string, error) {
@@ -108,7 +104,12 @@ func NextDate(now time.Time, date string, repeat string) (string, error) {
 					} else if day > 7 {
 						return "", fmt.Errorf("wrong number: %d\nmax number: 7", day)
 					}
-					if weekDay(d.Day()) == day {
+					weekDay := int(d.Weekday())
+					if weekDay == 0 {
+						weekDay += 7
+					}
+					log.Println((int(d.Weekday())), day)
+					if weekDay == day {
 						return d.Format("20060102"), nil
 					}
 				}
@@ -143,15 +144,13 @@ func NextDate(now time.Time, date string, repeat string) (string, error) {
 				d = d.AddDate(0, 0, 1)
 				if d.Unix() > now.Unix() {
 					for _, v1 := range months {
-						monthValue, err := strconv.Atoi(v1)
+						month, err := strconv.Atoi(v1)
 						if err != nil {
 							return "", nil
 						}
 
-						month := strconv.Itoa(monthValue)
-
-						if _, ok := monthsMap[month]; !ok {
-							return "", fmt.Errorf("wrong number: %s\nmax number: 12", month)
+						if month > 12 || month < 1 {
+							return "", fmt.Errorf("wrong number: %d\nmax number: 12", month)
 						}
 
 						for _, v2 := range days {
@@ -162,7 +161,7 @@ func NextDate(now time.Time, date string, repeat string) (string, error) {
 								return "", fmt.Errorf("wrong number: %d\nmax number: 31\nmin number: -2", day)
 							}
 
-							if (d.Day() == day || d.Day() == lenMonth(d)+day+1) && d.Month().String() == monthsMap[month] {
+							if (d.Day() == day || d.Day() == lenMonth(d)+day+1) && int(d.Month()) == month {
 								return d.Format("20060102"), nil
 							}
 						}
@@ -190,6 +189,7 @@ func Date(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
 
+	log.Println(date)
 	return c.Status(fiber.StatusOK).SendString(date)
 }
 
@@ -210,7 +210,7 @@ func PostTask(c *fiber.Ctx) error {
 			c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSONCharsetUTF8)
 			return c.Status(fiber.StatusBadRequest).JSON(models.ErrorResponse{Error: err.Error()})
 		}
-	} else if date.Unix() < time.Now().Unix() {
+	} else if date.Unix() < time.Now().Unix() && (time.Now().Unix()-date.Unix() >= 86400 || time.Now().Day() != date.Day()) {
 		if task.Repeat == "" {
 			date = time.Now()
 		} else {
@@ -300,7 +300,7 @@ func PostTask(c *fiber.Ctx) error {
 }
 
 func GetTasks(c *fiber.Ctx) error {
-	tasks := make([]models.Task, 50)
+	tasks := make([]models.TaskForTests, 50)
 
 	log.Println("search: ", c.Query("search"))
 
@@ -344,7 +344,7 @@ func GetTasks(c *fiber.Ctx) error {
 
 	log.Println(tasks)
 	c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSONCharsetUTF8)
-	return c.Status(fiber.StatusOK).JSON(models.CorrectGetTasks{Tasks: tasks})
+	return c.Status(fiber.StatusOK).JSON(models.CorrectGetTasksForTests{Tasks: tasks})
 }
 
 func GetTask(c *fiber.Ctx) error {
@@ -367,17 +367,39 @@ func GetTask(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(models.ErrorResponse{Error: "Задача не найдена"})
 	}
 
+	taskForTests := models.TaskForTests{
+		ID:      c.Query("id"),
+		Date:    task.Date,
+		Title:   task.Title,
+		Comment: task.Comment,
+		Repeat:  task.Repeat,
+	}
+
 	c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSONCharsetUTF8)
-	return c.Status(fiber.StatusOK).JSON(task)
+	return c.Status(fiber.StatusOK).JSON(taskForTests)
 }
 
 func UpdateTask(c *fiber.Ctx) error {
+	var taskForTests models.TaskForTests
 	var task models.Task
 
-	if err := c.BodyParser(&task); err != nil {
+	if err := c.BodyParser(&taskForTests); err != nil {
+		log.Println(err.Error())
 		c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSONCharsetUTF8)
 		return c.Status(fiber.StatusBadRequest).JSON(models.ErrorResponse{Error: "Задача не найдена"})
 	}
+
+	id, err := strconv.Atoi(taskForTests.ID)
+	if err != nil {
+		c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSONCharsetUTF8)
+		return c.Status(fiber.StatusBadRequest).JSON(models.ErrorResponse{Error: "Задача не найдена"})
+	}
+
+	task.ID = id
+	task.Date = taskForTests.Date
+	task.Title = taskForTests.Title
+	task.Comment = taskForTests.Comment
+	task.Repeat = taskForTests.Repeat
 
 	log.Println("params: ", task.Date, task.Title, task.Comment, task.Repeat)
 
@@ -466,15 +488,145 @@ func UpdateTask(c *fiber.Ctx) error {
 		}
 	}
 
-	result := database.Gorm.Db.Where("id = ?", task.ID).Raw("UPDATE scheduler SET date = ?, title = ?, comment = ?, repeat = ?", task.Date, task.Title, task.Comment, task.Repeat).Omit("created_at", "updated_at", "deleted_at").Save(&task)
+	result := database.Gorm.Db.Exec("UPDATE scheduler SET date = ?, title = ?, comment = ?, repeat = ? WHERE id = ?", task.Date, task.Title, task.Comment, task.Repeat, task.ID)
 	if result.Error != nil {
 		log.Println(err.Error())
 		c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSONCharsetUTF8)
 		return c.Status(fiber.StatusInternalServerError).JSON(models.ErrorResponse{Error: result.Error.Error()})
+	} else if result.RowsAffected == 0 {
+		log.Println("Задача не найдена")
+		c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSONCharsetUTF8)
+		return c.Status(fiber.StatusBadRequest).JSON(models.ErrorResponse{Error: "Задача не найдена"})
 	}
 
 	log.Println(task.ID)
 	c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSONCharsetUTF8)
-	return c.Status(fiber.StatusOK).JSON("")
+	return c.Status(fiber.StatusOK).JSON(models.CorrectResponse{})
+}
 
+func DoneTask(c *fiber.Ctx) error {
+	var task models.Task
+
+	log.Println(c.Query("id"))
+	id, err := strconv.Atoi(c.Query("id"))
+	if err != nil {
+		c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSONCharsetUTF8)
+		return c.Status(fiber.StatusBadRequest).JSON(models.ErrorResponse{Error: err.Error()})
+	}
+
+	result := database.Gorm.Db.Raw("SELECT id, date, title, comment, repeat FROM scheduler WHERE id = ? LIMIT 1", id).First(&task)
+	if result.Error != nil {
+		log.Println(result.Error.Error())
+		c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSONCharsetUTF8)
+		return c.Status(fiber.StatusNotFound).JSON(models.ErrorResponse{Error: result.Error.Error()})
+	}
+
+	if task.Repeat == "" {
+		result = database.Gorm.Db.Exec("DELETE FROM scheduler WHERE id = ?", id)
+		if result.Error != nil {
+			log.Println(result.Error.Error())
+			c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSONCharsetUTF8)
+			return c.Status(fiber.StatusInternalServerError).JSON(models.ErrorResponse{Error: result.Error.Error()})
+		}
+
+		c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSONCharsetUTF8)
+		return c.Status(fiber.StatusOK).JSON(models.CorrectResponse{})
+	} else {
+		newDate, err := NextDate(time.Now(), task.Date, task.Repeat)
+		if err != nil {
+			log.Println(err.Error())
+			c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSONCharsetUTF8)
+			return c.Status(fiber.StatusInternalServerError).JSON(models.ErrorResponse{Error: err.Error()})
+		}
+
+		result = database.Gorm.Db.Exec("UPDATE scheduler SET date = ? WHERE id = ?", newDate, id)
+		if result.Error != nil {
+			log.Println(result.Error.Error())
+			c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSONCharsetUTF8)
+			return c.Status(fiber.StatusInternalServerError).JSON(models.ErrorResponse{Error: result.Error.Error()})
+		}
+	}
+
+	c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSONCharsetUTF8)
+	return c.Status(fiber.StatusOK).JSON(models.CorrectResponse{})
+}
+
+func DeleteTask(c *fiber.Ctx) error {
+	log.Println(c.Query("id"))
+	id, err := strconv.Atoi(c.Query("id"))
+	if err != nil {
+		c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSONCharsetUTF8)
+		return c.Status(fiber.StatusBadRequest).JSON(models.ErrorResponse{Error: err.Error()})
+	}
+
+	result := database.Gorm.Db.Exec("DELETE FROM scheduler WHERE id = ?", id)
+	if result.Error != nil {
+		c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSONCharsetUTF8)
+		return c.Status(fiber.StatusInternalServerError).JSON(models.ErrorResponse{Error: result.Error.Error()})
+	}
+
+	c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSONCharsetUTF8)
+	return c.Status(fiber.StatusOK).JSON(models.CorrectResponse{})
+}
+
+func Auth(next fiber.Handler) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		pass := os.Getenv("TODO_PASSWORD")
+		if len(pass) > 0 {
+			var token string
+
+			if len(c.Cookies("token")) != 0 {
+				token = c.Cookies("token")
+				log.Println("No token")
+			}
+			var valid bool
+			log.Println("token:", token)
+			jwtToken := jwt.New(jwt.SigningMethodHS256)
+			passwordToken, err := jwtToken.SignedString([]byte(pass))
+			if err != nil {
+				valid = false
+				log.Println("validation:", err)
+			} else if passwordToken == token {
+				valid = true
+			}
+
+			if !valid {
+				c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSONCharsetUTF8)
+				return c.Status(fiber.StatusUnauthorized).JSON(models.ErrorResponse{Error: "Authentification required"})
+			}
+		}
+		return next(c)
+	}
+}
+
+func Registration(c *fiber.Ctx) error {
+	password := os.Getenv("TODO_PASSWORD")
+
+	var enteredPassword map[string]string
+
+	err := c.BodyParser(&enteredPassword)
+	log.Println("entered:", enteredPassword["password"], "real:", password)
+	if err != nil {
+		log.Println("parsing:", err)
+		c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSONCharsetUTF8)
+		return c.Status(fiber.StatusBadRequest).JSON(models.ErrorResponse{Error: err.Error()})
+	}
+
+	if enteredPassword["password"] != password {
+		log.Println("мимо")
+		c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSONCharsetUTF8)
+		return c.Status(fiber.StatusUnauthorized).JSON(models.ErrorResponse{Error: "Неверный пароль"})
+	}
+
+	jwtToken := jwt.New(jwt.SigningMethodHS256)
+	token, err := jwtToken.SignedString([]byte(password))
+	if err != nil {
+		log.Println("creating token:", err)
+		c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSONCharsetUTF8)
+		return c.Status(fiber.StatusInternalServerError).JSON(models.ErrorResponse{Error: err.Error()})
+	}
+
+	log.Println(token)
+	c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSONCharsetUTF8)
+	return c.Status(fiber.StatusOK).JSON(models.CorrectAuth{Token: token})
 }

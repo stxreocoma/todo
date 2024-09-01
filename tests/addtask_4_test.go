@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/http/cookiejar"
 	"strconv"
@@ -71,6 +72,7 @@ func postJSON(apipath string, values map[string]any, method string) (map[string]
 		return nil, err
 	}
 	err = json.Unmarshal(body, &m)
+	log.Println(err)
 	return m, err
 }
 

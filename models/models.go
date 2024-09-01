@@ -11,12 +11,28 @@ type Task struct {
 	Repeat     string `json:"repeat"`
 }
 
+type TaskForTests struct {
+	ID      string `json:"id"`
+	Date    string `json:"date"`
+	Title   string `json:"title"`
+	Comment string `json:"comment"`
+	Repeat  string `json:"repeat"`
+}
+
 type CorrectResponse struct {
-	ID string `json:"id"`
+	ID string `json:"id,omitempty"`
 }
 
 type CorrectGetTasks struct {
 	Tasks []Task `json:"tasks"`
+}
+
+type CorrectGetTasksForTests struct {
+	Tasks []TaskForTests `json:"tasks"`
+}
+
+type CorrectAuth struct {
+	Token string `json:"token"`
 }
 
 type ErrorResponse struct {
