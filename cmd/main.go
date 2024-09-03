@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/stxreocoma/todo/auth"
 	"github.com/stxreocoma/todo/database"
 	"github.com/stxreocoma/todo/handlers"
 )
@@ -19,14 +20,14 @@ func main() {
 
 	log.Println(os.Getenv("TODO_PORT"))
 
-	app.Get("/api/nextdate", handlers.Date)
+	app.Get("/api/nextdate", handlers.GetDate)
 	app.Post("/api/task", handlers.PostTask)
-	app.Get("/api/tasks", handlers.Auth(handlers.GetTasks))
-	app.Get("/api/task", handlers.Auth(handlers.GetTask))
-	app.Put("/api/task", handlers.Auth(handlers.UpdateTask))
-	app.Post("api/task/done", handlers.Auth(handlers.DoneTask))
-	app.Delete("api/task", handlers.Auth(handlers.DeleteTask))
-	app.Post("api/signin", handlers.Registration)
+	app.Get("/api/tasks", auth.Authentication(handlers.GetTasks))
+	app.Get("/api/task", auth.Authentication(handlers.GetTask))
+	app.Put("/api/task", auth.Authentication(handlers.UpdateTask))
+	app.Post("api/task/done", auth.Authentication(handlers.DoneTask))
+	app.Delete("api/task", auth.Authentication(handlers.DeleteTask))
+	app.Post("api/signin", auth.Registration)
 
 	app.Listen(":" + port)
 }
