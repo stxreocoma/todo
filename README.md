@@ -27,6 +27,13 @@
 
 `ТЕСТЫ`
 Тесты можно запустить командой: go test ./tests
+Параметры для тестов:
+- Port = 7540
+- DBFile = "../scheduler.db"
+- FullNextDate = true
+- Search = true
+- Token = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.396KCDWMomWrMEImsF84AmFRjBEvSvnyLh3ZA_mB_Wg`
+
 
 `СБОРКА И ЗАПУСК ЧЕРЕЗ ДОКЕР`
 Для сборки проекта через докер нужно ввести команду: docker build -t <Ваше имя в dockerhub>/todo .

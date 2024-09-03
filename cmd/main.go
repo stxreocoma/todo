@@ -10,8 +10,7 @@ import (
 )
 
 func main() {
-	//database.ConnectDB()
-	//defer database.DB.Db.Close()
+	port := os.Getenv("TODO_PORT")
 
 	database.ConnectGorm()
 
@@ -29,5 +28,5 @@ func main() {
 	app.Delete("api/task", handlers.Auth(handlers.DeleteTask))
 	app.Post("api/signin", handlers.Registration)
 
-	app.Listen(":" + os.Getenv("TODO_PORT"))
+	app.Listen(":" + port)
 }
