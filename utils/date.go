@@ -2,7 +2,6 @@ package utils
 
 import (
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -46,7 +45,6 @@ func lenMonth(date time.Time) int {
 func NextDate(now time.Time, date string, repeat string) (string, error) {
 	d, err := time.Parse(DateFormat, date)
 	if err != nil {
-		log.Println(err)
 		return "", err
 	}
 
@@ -101,7 +99,6 @@ func NextDate(now time.Time, date string, repeat string) (string, error) {
 					if weekDay == 0 {
 						weekDay += 7
 					}
-					log.Println((int(d.Weekday())), day)
 					if weekDay == day {
 						return d.Format(DateFormat), nil
 					}

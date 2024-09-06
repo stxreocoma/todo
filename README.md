@@ -37,6 +37,6 @@
 
 `СБОРКА И ЗАПУСК ЧЕРЕЗ ДОКЕР`
 Для сборки проекта через докер нужно ввести команду: docker build -t <Ваше имя в dockerhub>/todo .
-Для запуска ввести команду: docker run -d -p 7540:7540 <Ваше имя в dockerhub>/todo
+Для запуска ввести команду: docker run -d -p 7540:7540 <Ваше имя в dockerhub>/todo:v2
 
 Ссылка на докер-образ: https://hub.docker.com/repository/docker/angedonia/todo/general

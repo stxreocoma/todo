@@ -4,7 +4,7 @@ import "gorm.io/gorm"
 
 type Task struct {
 	gorm.Model `json:"-"`
-	ID         string `json:"id" gorm:"<-:create"`
+	ID         string `json:"id"`
 	Date       string `json:"date"`
 	Title      string `json:"title"`
 	Comment    string `json:"comment"`

@@ -14,8 +14,6 @@ ENV TODO_PASSWORD=12345
 
 EXPOSE $TODO_PORT
 
-WORKDIR /app/cmd
+RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -o /my_app ./cmd
 
-RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -o ./cmd/my_app
-
-CMD ["./cmd/my_app"]
+CMD ["/my_app"]

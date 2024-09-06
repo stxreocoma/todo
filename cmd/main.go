@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"os"
 
 	"github.com/gofiber/fiber/v2"
@@ -18,10 +17,8 @@ func main() {
 	app := fiber.New()
 	app.Static("/", "./web")
 
-	log.Println(os.Getenv("TODO_PORT"))
-
 	app.Get("/api/nextdate", handlers.GetDate)
-	app.Post("/api/task", handlers.PostTask)
+	app.Post("/api/task", auth.Authentication(handlers.PostTask))
 	app.Get("/api/tasks", auth.Authentication(handlers.GetTasks))
 	app.Get("/api/task", auth.Authentication(handlers.GetTask))
 	app.Put("/api/task", auth.Authentication(handlers.UpdateTask))

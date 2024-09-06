@@ -22,13 +22,14 @@ var scheduler string
 
 func ConnectGorm() {
 	appPath, err := os.Executable()
-	log.Println(appPath)
 	if err != nil {
 		log.Fatal(err)
 	}
 	dbFile := filepath.Join(filepath.Dir(appPath), "scheduler.db")
 	_, err = os.Stat(dbFile)
-	log.Println(err.Error())
+	if err != nil {
+		log.Println(err)
+	}
 
 	var install bool
 	if err != nil {
