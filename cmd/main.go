@@ -11,6 +11,9 @@ import (
 
 func main() {
 	port := os.Getenv("TODO_PORT")
+	if len(port) == 0 {
+		port = "7540"
+	}
 
 	database.ConnectGorm()
 

@@ -32,7 +32,7 @@ func GetTasks(c *fiber.Ctx) error {
 	tasks := make([]models.Task, 50)
 
 	if c.Query("search") == "" {
-		result := database.Gorm.Db.Raw("SELECT id, date, title, comment, repeat FROM scheduler LIMIT 50").Limit(50).Find(&tasks)
+		result := database.Gorm.Db.Raw("SELECT id, date, title, comment, repeat FROM scheduler").Limit(50).Find(&tasks)
 		if result.Error != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(map[string]any{"error": models.ErrRepeat.Error()})
 		}
